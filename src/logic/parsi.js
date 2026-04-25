@@ -1,154 +1,251 @@
 /*
- * Parsi Intestate Succession — Indian Succession Act, 1925
- * Chapter III, Sections 50–56 (as amended by Act 51 of 1991).
+ * Parsi Intestate Succession — direct port of the engine in parsi.htm.
  *
- * Key rules implemented:
- *  • Section 51 (post-1991): widow and each child take equal shares; each
- *    parent takes half of a child's share.
- *  • Section 53: share of a predeceased son goes to his widow and lineal
- *    descendants (same scheme); share of a predeceased daughter goes to her
- *    children equally (her widower takes nothing under Parsi law).
- *  • Section 54 (no lineal descendants): widow takes one-half; residue goes
- *    to Schedule II relatives — parents, siblings, their descendants.
- *  • Section 55 (female intestate): same scheme gender-neutralised.
- *
- * Shares are returned as fractions; the UI normalises to 100 %.
+ * The engine works in rupee amounts (not normalised fractions). The estate is
+ * assembled from house + bank + insurance + pension - lifetime gifts; insurance
+ * and pension can be diverted to nominees. A full will short-circuits the
+ * calculation; a partial will trims the residue. With descendants, the shares
+ * follow Section 51 (spouse + each child = 1 unit, each parent = 0.5 unit).
+ * Predeceased son / daughter shares are split per Section 53 with support for
+ * predeceased grandchildren that pass their share to great-grandchildren.
  */
 
 export function computeParsi(input) {
   const {
-    deceasedSex = "male",
+    house = 0,
+    bank = 0,
+    insurance = 0,
+    pension = 0,
+    gift = 0,
+    insNominee = "",
+    penNominee = "",
+    nomineeOverride = false,
     spouseAlive = false,
-    livingSons = 0,
-    livingDaughters = 0,
-    predeceasedSons = [], // [{widow:bool, descendants:number}]
-    predeceasedDaughters = [], // [{descendants:number}]
+    willPresent = false,
+    partialWill = false,
+    willPercent = 0,
+    totalChildren = 0,
+    predeceasedChildren = [],
     fatherAlive = false,
     motherAlive = false,
-    siblings = 0,
-    predeceasedSiblings = [], // [{descendants:number}]
+    siblings: _siblings = 0,
+    predeceasedSiblings: _predeceasedSiblings = [],
   } = input;
 
-  const shares = [];
-  const notes = [];
-  const spouseLabel =
-    deceasedSex === "male" ? "Widow" : "Widower";
+  void _siblings;
+  void _predeceasedSiblings;
 
-  const hasLineal =
-    livingSons + livingDaughters > 0 ||
-    predeceasedSons.some((s) => s.widow || (s.descendants || 0) > 0) ||
-    predeceasedDaughters.some((d) => (d.descendants || 0) > 0);
+  const result = {
+    title: "Parsi intestate — distribution",
+    grossEstate: 0,
+    totalEstate: 0,
+    shares: [],
+    notes: [],
+    nomineeHeirs: [],
+    fullWill: false,
+    s53Triggered: false,
+  };
 
-  if (hasLineal) {
-    // Section 51: one share each for spouse and each child; half-share for each parent.
-    if (spouseAlive) {
-      shares.push({ heir: spouseLabel, fraction: 1, rule: "Section 51 — equal share" });
-    }
-    for (let i = 0; i < livingSons; i++) {
-      shares.push({ heir: `Son ${i + 1}`, fraction: 1, rule: "Section 51 — equal share" });
-    }
-    for (let i = 0; i < livingDaughters; i++) {
-      shares.push({
-        heir: `Daughter ${i + 1}`,
-        fraction: 1,
-        rule: "Section 51 — equal share",
+  let estateInsurance = insurance;
+  let estatePension = pension;
+
+  if (nomineeOverride) {
+    if (insurance > 0) {
+      result.nomineeHeirs.push({
+        heir: (insNominee || "").trim() || "Insurance Nominee",
+        amount: insurance,
+        rule: "Nominee — outside estate",
       });
+      estateInsurance = 0;
     }
-
-    predeceasedSons.forEach((ps, idx) => {
-      const childShare = 1;
-      // Section 53(a): distribute as if the predeceased son had died intestate.
-      const parts = (ps.widow ? 1 : 0) + (ps.descendants || 0);
-      if (parts === 0) return;
-      const per = childShare / parts;
-      if (ps.widow) {
-        shares.push({
-          heir: `Widow of predeceased son ${idx + 1}`,
-          fraction: per,
-          rule: "Section 53(a)",
-        });
-      }
-      for (let k = 0; k < (ps.descendants || 0); k++) {
-        shares.push({
-          heir: `Child ${k + 1} of predeceased son ${idx + 1}`,
-          fraction: per,
-          rule: "Section 53(a) — per stirpes",
-        });
-      }
-    });
-
-    predeceasedDaughters.forEach((pd, idx) => {
-      const childShare = 1;
-      const parts = pd.descendants || 0;
-      if (parts === 0) return;
-      const per = childShare / parts;
-      for (let k = 0; k < parts; k++) {
-        shares.push({
-          heir: `Child ${k + 1} of predeceased daughter ${idx + 1}`,
-          fraction: per,
-          rule: "Section 53(b) — equally among her children",
-        });
-      }
-    });
-
-    if (fatherAlive)
-      shares.push({ heir: "Father", fraction: 0.5, rule: "Section 51(2) — half of a child's share" });
-    if (motherAlive)
-      shares.push({ heir: "Mother", fraction: 0.5, rule: "Section 51(2) — half of a child's share" });
-
-    notes.push("Section 51 applied: spouse and each child take equal shares.");
-    if (fatherAlive || motherAlive)
-      notes.push("Each parent takes half of a child's share (Section 51(2)).");
-    if (predeceasedSons.length)
-      notes.push("Predeceased son's share distributed under Section 53(a).");
-    if (predeceasedDaughters.length)
-      notes.push("Predeceased daughter's share distributed equally among her children (Section 53(b)).");
-  } else {
-    // Section 54 — No lineal descendants.
-    if (spouseAlive) {
-      shares.push({ heir: spouseLabel, fraction: 0.5, rule: "Section 54(a) — one-half to spouse" });
-      notes.push("No lineal descendants: spouse takes one-half (Section 54).");
-    }
-    const residueFraction = spouseAlive ? 0.5 : 1;
-
-    const kin = [];
-    if (fatherAlive) kin.push({ heir: "Father", fraction: 1, rule: "Schedule II — Part I" });
-    if (motherAlive) kin.push({ heir: "Mother", fraction: 1, rule: "Schedule II — Part I" });
-    for (let i = 0; i < siblings; i++)
-      kin.push({ heir: `Sibling ${i + 1}`, fraction: 1, rule: "Schedule II — Part I (full brother/sister)" });
-    predeceasedSiblings.forEach((ps, idx) => {
-      for (let k = 0; k < (ps.descendants || 0); k++) {
-        kin.push({
-          heir: `Child ${k + 1} of predeceased sibling ${idx + 1}`,
-          fraction: 1 / (ps.descendants || 1),
-          rule: "Schedule II — per stirpes",
-        });
-      }
-    });
-
-    const kinTotal = kin.reduce((s, x) => s + x.fraction, 0) || 1;
-    kin.forEach((k) =>
-      shares.push({ ...k, fraction: (k.fraction / kinTotal) * residueFraction })
-    );
-
-    if (kin.length === 0 && spouseAlive) {
-      // Spouse takes everything in absence of relatives
-      shares[0].fraction = 1;
-      notes.push("No Schedule II relatives — spouse takes the entire estate.");
-    }
-    if (!spouseAlive && kin.length === 0) {
-      notes.push("No heirs identified. Property would escheat to the State.");
-    } else if (kin.length > 0) {
-      notes.push("Residue divided among next of kin per Schedule II.");
+    if (pension > 0) {
+      result.nomineeHeirs.push({
+        heir: (penNominee || "").trim() || "Pension Nominee",
+        amount: pension,
+        rule: "Nominee — outside estate",
+      });
+      estatePension = 0;
     }
   }
 
-  return {
-    title:
-      deceasedSex === "male"
-        ? "Parsi male intestate — computed shares"
-        : "Parsi female intestate — computed shares",
-    shares,
-    notes,
-  };
+  let totalEstate = house + bank + estateInsurance + estatePension - gift;
+  if (totalEstate < 0) totalEstate = 0;
+  result.grossEstate = totalEstate;
+
+  if (willPresent) {
+    result.fullWill = true;
+    result.totalEstate = totalEstate;
+    return result;
+  }
+
+  if (partialWill && willPercent > 0) {
+    totalEstate = totalEstate - (willPercent / 100) * totalEstate;
+    if (totalEstate < 0) totalEstate = 0;
+    result.notes.push(
+      `Partial will applied: ${willPercent}% of the estate is governed by the will; the remainder is distributed below.`,
+    );
+  }
+
+  result.totalEstate = totalEstate;
+  if (totalEstate <= 0) return result;
+
+  const preChildren = predeceasedChildren.length;
+  const aliveChildren = Math.max(0, totalChildren - preChildren);
+
+  if (totalChildren <= 0) return result;
+
+  const parentCount = (fatherAlive ? 1 : 0) + (motherAlive ? 1 : 0);
+  const units =
+    aliveChildren + preChildren + (spouseAlive ? 1 : 0) + parentCount * 0.5;
+  if (units === 0) return result;
+  const unit = totalEstate / units;
+
+  if (spouseAlive) {
+    result.shares.push({
+      heir: "Spouse",
+      amount: unit,
+      rule: "Section 51 — equal share",
+    });
+  }
+  for (let i = 1; i <= aliveChildren; i++) {
+    result.shares.push({
+      heir: `Child ${i}`,
+      amount: unit,
+      rule: "Section 51 — equal share",
+    });
+  }
+  if (fatherAlive) {
+    result.shares.push({
+      heir: "Father",
+      amount: unit / 2,
+      rule: "Section 51(2) — half of a child's share",
+    });
+  }
+  if (motherAlive) {
+    result.shares.push({
+      heir: "Mother",
+      amount: unit / 2,
+      rule: "Section 51(2) — half of a child's share",
+    });
+  }
+
+  let redistributionPool = 0;
+
+  predeceasedChildren.forEach((pc, i) => {
+    const idx = i + 1;
+    const type = pc.type === "daughter" ? "daughter" : "son";
+    const branchCount = Number(pc.branchCount) || 0;
+    const widow = !!pc.widow;
+    const preGCList = Array.isArray(pc.predeceasedGrandchildren)
+      ? pc.predeceasedGrandchildren
+      : [];
+    const preGC = preGCList.length;
+
+    let hasDesc = branchCount > 0;
+    if (!hasDesc) {
+      for (let j = 0; j < preGC; j++) {
+        if ((Number(preGCList[j]?.count) || 0) > 0) {
+          hasDesc = true;
+          break;
+        }
+      }
+    }
+
+    if (type === "son") {
+      if (!hasDesc && widow) {
+        result.shares.push({
+          heir: `Widow (Branch ${idx})`,
+          amount: unit / 2,
+          rule: "Section 53 — half to widow (no descendants)",
+        });
+        result.s53Triggered = true;
+        return;
+      }
+      if (branchCount === 0 && widow) {
+        result.shares.push({
+          heir: `Widow (Branch ${idx})`,
+          amount: unit,
+          rule: "Section 53(a)",
+        });
+        redistributionPool += unit;
+        return;
+      }
+      const members = branchCount + (widow ? 1 : 0);
+      if (members === 0) return;
+      const perHead = unit / members;
+      if (widow) {
+        result.shares.push({
+          heir: `Widow (Branch ${idx})`,
+          amount: perHead,
+          rule: "Section 53(a) — equal with grandchildren",
+        });
+      }
+      for (let j = 1; j <= branchCount; j++) {
+        if (j <= preGC) {
+          const gcount = Number(preGCList[j - 1]?.count) || 0;
+          if (gcount === 0) continue;
+          const subShare = perHead / gcount;
+          for (let k = 1; k <= gcount; k++) {
+            result.shares.push({
+              heir: `Great-Grandchild (Branch ${idx}.${j})`,
+              amount: subShare,
+              rule: "Section 53(a) — per stirpes",
+            });
+          }
+        } else {
+          result.shares.push({
+            heir: `Grandchild (Branch ${idx})`,
+            amount: perHead,
+            rule: "Section 53(a)",
+          });
+        }
+      }
+    } else {
+      if (branchCount === 0) return;
+      const perHead = unit / branchCount;
+      for (let j = 1; j <= branchCount; j++) {
+        if (j <= preGC) {
+          const gcount = Number(preGCList[j - 1]?.count) || 0;
+          if (gcount === 0) continue;
+          const subShare = perHead / gcount;
+          for (let k = 1; k <= gcount; k++) {
+            result.shares.push({
+              heir: `Great-Grandchild (Branch ${idx}.${j})`,
+              amount: subShare,
+              rule: "Section 53(b) — per stirpes",
+            });
+          }
+        } else {
+          result.shares.push({
+            heir: `Grandchild (Branch ${idx})`,
+            amount: perHead,
+            rule: "Section 53(b) — equally among her children",
+          });
+        }
+      }
+    }
+  });
+
+  if (redistributionPool > 0) {
+    const eligible = result.shares.filter(
+      (h) => !h.heir.startsWith("Widow (Branch"),
+    );
+    if (eligible.length > 0) {
+      const extra = redistributionPool / eligible.length;
+      eligible.forEach((h) => {
+        h.amount += extra;
+      });
+    }
+  }
+
+  result.notes.push(
+    "Section 51: spouse and each child take equal shares; each parent takes half a child's share.",
+  );
+  if (preChildren > 0) {
+    result.notes.push(
+      "Predeceased children handled per Section 53 (per stirpes through grandchildren).",
+    );
+  }
+
+  return result;
 }

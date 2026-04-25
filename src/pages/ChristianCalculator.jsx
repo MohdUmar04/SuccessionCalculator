@@ -7,18 +7,33 @@ import ResultBreakdown from "../components/ResultBreakdown";
 import { computeChristian } from "../logic/christian";
 
 const initialState = {
-  estate: "",
-  isIndianChristian: true,
+  // assets
+  house: "",
+  bank: "",
+  insurance: "",
+  pension: "",
+  gift: "",
+  insNominee: "",
+  penNominee: "",
+  nomineeOverride: false,
+
+  // will
+  willPresent: false,
+  partialWill: false,
+  willPercent: "",
+
+  // family
   spouseAlive: true,
-  livingChildren: 2,
+  totalChildren: 2,
   predeceasedChildCount: 0,
   predeceasedChildren: [],
+
   fatherAlive: false,
   motherAlive: false,
-  siblings: 0,
+
+  totalSiblings: 0,
   predeceasedSiblingCount: 0,
   predeceasedSiblings: [],
-  nextOfKin: 0,
 };
 
 export default function ChristianCalculator() {
@@ -27,20 +42,20 @@ export default function ChristianCalculator() {
 
   const predeceasedChildren = useMemo(() => {
     const arr = [...state.predeceasedChildren];
-    while (arr.length < state.predeceasedChildCount) arr.push({ descendants: 1 });
+    while (arr.length < state.predeceasedChildCount) arr.push({ branchCount: 0 });
     arr.length = state.predeceasedChildCount;
     return arr;
   }, [state.predeceasedChildren, state.predeceasedChildCount]);
 
   const predeceasedSiblings = useMemo(() => {
     const arr = [...state.predeceasedSiblings];
-    while (arr.length < state.predeceasedSiblingCount) arr.push({ descendants: 1 });
+    while (arr.length < state.predeceasedSiblingCount) arr.push({ branchCount: 0 });
     arr.length = state.predeceasedSiblingCount;
     return arr;
   }, [state.predeceasedSiblings, state.predeceasedSiblingCount]);
 
   const updateChild = (idx, p) => {
-    const next = predeceasedChildren.map((s, i) => (i === idx ? { ...s, ...p } : s));
+    const next = predeceasedChildren.map((c, i) => (i === idx ? { ...c, ...p } : c));
     patch({ predeceasedChildren: next });
   };
   const updateSibling = (idx, p) => {
@@ -48,26 +63,36 @@ export default function ChristianCalculator() {
     patch({ predeceasedSiblings: next });
   };
 
+  const num = (v) => (v === "" || v == null ? 0 : Math.max(0, Number(v) || 0));
+
   const result = useMemo(() => {
     return computeChristian({
-      estate: parseFloat(state.estate) || 0,
-      isIndianChristian: state.isIndianChristian,
+      house: num(state.house),
+      bank: num(state.bank),
+      insurance: num(state.insurance),
+      pension: num(state.pension),
+      gift: num(state.gift),
+      insNominee: state.insNominee,
+      penNominee: state.penNominee,
+      nomineeOverride: state.nomineeOverride,
+      willPresent: state.willPresent,
+      partialWill: state.partialWill,
+      willPercent: num(state.willPercent),
       spouseAlive: state.spouseAlive,
-      livingChildren: state.livingChildren,
+      totalChildren: state.totalChildren,
       predeceasedChildren,
       fatherAlive: state.fatherAlive,
       motherAlive: state.motherAlive,
-      siblings: state.siblings,
+      siblings: state.totalSiblings,
       predeceasedSiblings,
-      nextOfKin: state.nextOfKin,
     });
   }, [state, predeceasedChildren, predeceasedSiblings]);
 
-  const estateNum = parseFloat(state.estate) || 0;
-
-  const hasLineal =
-    state.livingChildren > 0 ||
-    predeceasedChildren.some((c) => c.descendants > 0);
+  const livingChildren = Math.max(
+    0,
+    state.totalChildren - state.predeceasedChildCount,
+  );
+  const hasLineal = state.totalChildren > 0;
 
   return (
     <div className="space-y-8">
@@ -79,8 +104,9 @@ export default function ChristianCalculator() {
           </div>
           <h1 className="section-title">Christian Succession Calculator</h1>
           <p className="text-ink-300 mt-2 max-w-2xl">
-            Compute the intestate division across spouse, lineal descendants and kindred — including
-            Section 33A (Indian Christian widow with no descendants).
+            Asset-aware intestate distribution: spouse, lineal descendants,
+            parents, siblings and further kindred. Will and nominee handling
+            included.
           </p>
         </div>
         <button className="btn-ghost" onClick={() => setState(initialState)}>
@@ -89,53 +115,145 @@ export default function ChristianCalculator() {
       </header>
 
       <div className="grid lg:grid-cols-5 gap-8">
-        <form className="lg:col-span-3 space-y-6" onSubmit={(e) => e.preventDefault()}>
-          <Section title="The deceased" description="Christian who died without a valid will.">
+        <form
+          className="lg:col-span-3 space-y-6"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <Section title="Assets" description="Estate is house + bank + insurance + pension − lifetime gifts.">
             <div className="grid sm:grid-cols-2 gap-4">
+              <CurrencyField
+                label="House value (₹)"
+                value={state.house}
+                onChange={(v) => patch({ house: v })}
+              />
+              <CurrencyField
+                label="Bank balance (₹)"
+                value={state.bank}
+                onChange={(v) => patch({ bank: v })}
+              />
+              <CurrencyField
+                label="Insurance (₹)"
+                value={state.insurance}
+                onChange={(v) => patch({ insurance: v })}
+              />
+              <CurrencyField
+                label="Pension (₹)"
+                value={state.pension}
+                onChange={(v) => patch({ pension: v })}
+              />
+              <CurrencyField
+                label="Gifts made during lifetime (₹)"
+                value={state.gift}
+                onChange={(v) => patch({ gift: v })}
+              />
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4 pt-2">
               <div>
-                <label className="label">Estate value (optional, ₹)</label>
+                <label className="label">Insurance nominee</label>
                 <input
                   className="input"
-                  type="number"
-                  min="0"
-                  step="1000"
-                  placeholder="Needed for Section 33A threshold"
-                  value={state.estate}
-                  onChange={(e) => patch({ estate: e.target.value })}
+                  value={state.insNominee}
+                  onChange={(e) => patch({ insNominee: e.target.value })}
+                  placeholder="Name (optional)"
                 />
               </div>
-              <div className="flex items-end">
-                <Toggle
-                  value={state.isIndianChristian}
-                  onChange={(v) => patch({ isIndianChristian: v })}
-                  label="Indian Christian"
-                  hint="Enables Section 33A (₹5,000 threshold) where applicable."
+              <div>
+                <label className="label">Pension nominee</label>
+                <input
+                  className="input"
+                  value={state.penNominee}
+                  onChange={(e) => patch({ penNominee: e.target.value })}
+                  placeholder="Name (optional)"
                 />
               </div>
             </div>
+
+            <div className="pt-2">
+              <Toggle
+                value={state.nomineeOverride}
+                onChange={(v) => patch({ nomineeOverride: v })}
+                label="Nominee gets the asset directly"
+                hint="Insurance and pension proceeds bypass the estate when on."
+              />
+            </div>
           </Section>
 
-          <Section title="Spouse" description="Section 33 / 33A / 34 depending on heirs.">
+          <Section title="Will" description="Full will short-circuits the calculation; a partial will trims the residue.">
+            <div className="space-y-3">
+              <Toggle
+                value={state.willPresent}
+                onChange={(v) =>
+                  patch({
+                    willPresent: v,
+                    ...(v ? { partialWill: false } : {}),
+                  })
+                }
+                label="Full will is present"
+                hint="Distribution will follow the will entirely."
+              />
+              <Toggle
+                value={state.partialWill}
+                onChange={(v) =>
+                  patch({
+                    partialWill: v,
+                    ...(v ? { willPresent: false } : {}),
+                  })
+                }
+                label="Partial will is present"
+                hint="A portion of the estate is governed by the will."
+              />
+              {state.partialWill && (
+                <div className="max-w-xs">
+                  <label className="label">Estate covered by will (%)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={state.willPercent}
+                    onChange={(e) => patch({ willPercent: e.target.value })}
+                    placeholder="e.g. 40"
+                  />
+                </div>
+              )}
+            </div>
+          </Section>
+
+          <Section title="Spouse" description="Section 33 (with descendants) or Section 34 (without).">
             <Toggle
               value={state.spouseAlive}
               onChange={(v) => patch({ spouseAlive: v })}
-              label="Widow or widower is alive"
+              label="Spouse is alive"
             />
           </Section>
 
-          <Section title="Lineal descendants">
+          <Section title="Children">
             <div className="grid sm:grid-cols-2 gap-4">
               <NumberStepper
-                label="Living children"
-                value={state.livingChildren}
-                onChange={(v) => patch({ livingChildren: v })}
+                label="Total children"
+                value={state.totalChildren}
+                onChange={(v) =>
+                  patch({
+                    totalChildren: v,
+                    predeceasedChildCount: Math.min(state.predeceasedChildCount, v),
+                  })
+                }
               />
               <NumberStepper
-                label="Predeceased children (with their own children)"
+                label="Predeceased children"
                 value={state.predeceasedChildCount}
-                onChange={(v) => patch({ predeceasedChildCount: v })}
+                max={state.totalChildren}
+                onChange={(v) =>
+                  patch({
+                    predeceasedChildCount: Math.min(v, state.totalChildren),
+                  })
+                }
               />
             </div>
+            <p className="text-xs text-ink-300 mt-1">
+              Living children: <span className="font-semibold">{livingChildren}</span>
+            </p>
             <AnimatePresence>
               {predeceasedChildren.map((pc, idx) => (
                 <motion.div
@@ -145,96 +263,114 @@ export default function ChristianCalculator() {
                   exit={{ opacity: 0, y: -8 }}
                   className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10"
                 >
-                  <div className="text-sm font-semibold mb-3">Predeceased child {idx + 1}</div>
+                  <div className="text-sm font-semibold mb-3">
+                    Predeceased child {idx + 1}
+                  </div>
                   <NumberStepper
-                    label="Living grandchildren from this child"
-                    value={pc.descendants}
-                    onChange={(v) => updateChild(idx, { descendants: v })}
+                    label="Children in this branch (grandchildren)"
+                    value={pc.branchCount}
+                    onChange={(v) => updateChild(idx, { branchCount: v })}
                   />
                 </motion.div>
               ))}
             </AnimatePresence>
           </Section>
 
-          {!hasLineal && (
-            <Section
-              title="Kindred (no lineal descendants)"
-              description="Applied under Sections 42–48."
-            >
-              <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                <Toggle
-                  value={state.fatherAlive}
-                  onChange={(v) => patch({ fatherAlive: v })}
-                  label="Father is alive"
-                />
-                <Toggle
-                  value={state.motherAlive}
-                  onChange={(v) => patch({ motherAlive: v })}
-                  label="Mother is alive"
-                />
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <NumberStepper
-                  label="Living siblings"
-                  value={state.siblings}
-                  onChange={(v) => patch({ siblings: v })}
-                />
-                <NumberStepper
-                  label="Predeceased siblings (with children)"
-                  value={state.predeceasedSiblingCount}
-                  onChange={(v) => patch({ predeceasedSiblingCount: v })}
-                />
-              </div>
-              <AnimatePresence>
-                {predeceasedSiblings.map((sb, idx) => (
-                  <motion.div
-                    key={`sib-${idx}`}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10"
-                  >
-                    <div className="text-sm font-semibold mb-3">Predeceased sibling {idx + 1}</div>
-                    <NumberStepper
-                      label="Children of this sibling"
-                      value={sb.descendants}
-                      onChange={(v) => updateSibling(idx, { descendants: v })}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+          <Section
+            title="Parents"
+            description={
+              hasLineal
+                ? "Recorded for context. Parents only inherit when there are no lineal descendants."
+                : "Section 34 (with spouse) or Sections 42–43 (no spouse)."
+            }
+          >
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Toggle
+                value={state.fatherAlive}
+                onChange={(v) => patch({ fatherAlive: v })}
+                label="Father is alive"
+              />
+              <Toggle
+                value={state.motherAlive}
+                onChange={(v) => patch({ motherAlive: v })}
+                label="Mother is alive"
+              />
+            </div>
+          </Section>
 
-              <div className="mt-4">
-                <NumberStepper
-                  label="Other next-of-kin groups (Section 48)"
-                  value={state.nextOfKin}
-                  onChange={(v) => patch({ nextOfKin: v })}
-                />
-                <p className="text-xs text-ink-300 mt-2">
-                  Used only when no parent, sibling or descendant of a sibling exists.
-                </p>
-              </div>
-            </Section>
-          )}
+          <Section
+            title="Siblings"
+            description={
+              hasLineal || state.fatherAlive || state.motherAlive || state.spouseAlive
+                ? "Used only when no descendants, no spouse and no parents survive."
+                : "Sections 44–47: siblings (and nephews/nieces of predeceased siblings) share equally per stirpes."
+            }
+          >
+            <div className="grid sm:grid-cols-2 gap-4">
+              <NumberStepper
+                label="Total siblings"
+                value={state.totalSiblings}
+                onChange={(v) =>
+                  patch({
+                    totalSiblings: v,
+                    predeceasedSiblingCount: Math.min(
+                      state.predeceasedSiblingCount,
+                      v,
+                    ),
+                  })
+                }
+              />
+              <NumberStepper
+                label="Predeceased siblings"
+                value={state.predeceasedSiblingCount}
+                max={state.totalSiblings}
+                onChange={(v) =>
+                  patch({
+                    predeceasedSiblingCount: Math.min(v, state.totalSiblings),
+                  })
+                }
+              />
+            </div>
+            <AnimatePresence>
+              {predeceasedSiblings.map((sb, idx) => (
+                <motion.div
+                  key={`sib-${idx}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10"
+                >
+                  <div className="text-sm font-semibold mb-3">
+                    Predeceased sibling {idx + 1}
+                  </div>
+                  <NumberStepper
+                    label="Children of this sibling"
+                    value={sb.branchCount}
+                    onChange={(v) => updateSibling(idx, { branchCount: v })}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </Section>
         </form>
 
         <aside className="lg:col-span-2 space-y-6 lg:sticky lg:top-24 self-start">
           <div className="glass p-5 flex items-start gap-3">
             <Calculator className="w-5 h-5 text-accent-300 mt-0.5" />
             <p className="text-sm text-ink-200">
-              Enter the estate value to unlock the Section 33A split. Otherwise a Section 34 half-and-half
-              is shown as a fallback.
+              Live preview. Spouse with descendants → Section 33 (1/3-2/3);
+              spouse with parents only → Section 34 (1/2-1/2).
             </p>
           </div>
 
-          <ResultBreakdown result={result} estate={estateNum} />
+          <ResultBreakdown result={result} />
 
           <div className="glass p-5 text-xs text-ink-300 flex gap-3">
             <Info className="w-4 h-4 shrink-0 mt-0.5 text-accent-300" />
             <p>
-              This calculator covers the principal rules. Special cases — illegitimate children,
-              adoption, conversion, and property domiciled abroad — are not modelled here and should
-              be referred to counsel.
+              Special cases — illegitimate children, adoption, conversion,
+              foreign-domiciled property — are not modelled here and should be
+              referred to counsel.
             </p>
           </div>
         </aside>
@@ -253,9 +389,28 @@ function Section({ title, description, children }) {
     >
       <div>
         <h3 className="font-display text-xl font-semibold">{title}</h3>
-        {description && <p className="text-sm text-ink-300 mt-1">{description}</p>}
+        {description && (
+          <p className="text-sm text-ink-300 mt-1">{description}</p>
+        )}
       </div>
       {children}
     </motion.section>
+  );
+}
+
+function CurrencyField({ label, value, onChange }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <input
+        className="input"
+        type="number"
+        min="0"
+        step="1000"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+      />
+    </div>
   );
 }
