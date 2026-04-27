@@ -402,7 +402,7 @@ export default function ParsiCalculator() {
 
           <Section
             title="Siblings"
-            description="Captured for record. The Parsi calculation here only distributes when there are children."
+            description="Used under Section 54 / Schedule II when there are no lineal descendants."
           >
             <div className="grid sm:grid-cols-2 gap-4">
               <NumberStepper

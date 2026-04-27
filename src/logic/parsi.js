@@ -1,5 +1,7 @@
 /*
- * Parsi Intestate Succession — direct port of the engine in parsi.htm.
+ * Parsi Intestate Succession — direct port of the engine in
+ * docs/legacy/parsi.htm, with the Section 54 + Schedule II branch added for
+ * the no-lineal-descendants case (which the original .htm left unhandled).
  *
  * The engine works in rupee amounts (not normalised fractions). The estate is
  * assembled from house + bank + insurance + pension - lifetime gifts; insurance
@@ -28,12 +30,9 @@ export function computeParsi(input) {
     predeceasedChildren = [],
     fatherAlive = false,
     motherAlive = false,
-    siblings: _siblings = 0,
-    predeceasedSiblings: _predeceasedSiblings = [],
+    siblings = 0,
+    predeceasedSiblings = [],
   } = input;
-
-  void _siblings;
-  void _predeceasedSiblings;
 
   const result = {
     title: "Parsi intestate — distribution",
@@ -92,7 +91,16 @@ export function computeParsi(input) {
   const preChildren = predeceasedChildren.length;
   const aliveChildren = Math.max(0, totalChildren - preChildren);
 
-  if (totalChildren <= 0) return result;
+  if (totalChildren <= 0) {
+    distributeNoDescendants(result, totalEstate, {
+      spouseAlive,
+      fatherAlive,
+      motherAlive,
+      siblings,
+      predeceasedSiblings,
+    });
+    return result;
+  }
 
   const parentCount = (fatherAlive ? 1 : 0) + (motherAlive ? 1 : 0);
   const units =
@@ -248,4 +256,98 @@ export function computeParsi(input) {
   }
 
   return result;
+}
+
+function distributeNoDescendants(result, totalEstate, opts) {
+  const {
+    spouseAlive,
+    fatherAlive,
+    motherAlive,
+    siblings,
+    predeceasedSiblings,
+  } = opts;
+
+  const preSibCount = predeceasedSiblings.length;
+  const aliveSiblings = Math.max(0, siblings - preSibCount);
+
+  const slots = [];
+  if (fatherAlive) {
+    slots.push({ kind: "fixed", heir: "Father", rule: "Schedule II — Part I" });
+  }
+  if (motherAlive) {
+    slots.push({ kind: "fixed", heir: "Mother", rule: "Schedule II — Part I" });
+  }
+  for (let i = 1; i <= aliveSiblings; i++) {
+    slots.push({
+      kind: "fixed",
+      heir: `Sibling ${i}`,
+      rule: "Schedule II — full sibling",
+    });
+  }
+  predeceasedSiblings.forEach((ps, idx) => {
+    const count = Number(ps.branchCount) || 0;
+    if (count > 0) {
+      slots.push({
+        kind: "branch",
+        idx,
+        count,
+        rule: "Schedule II — per stirpes",
+      });
+    }
+  });
+
+  if (slots.length === 0) {
+    if (spouseAlive) {
+      result.shares.push({
+        heir: "Spouse",
+        amount: totalEstate,
+        rule: "Section 54 — no Schedule II kin, spouse takes all",
+      });
+      result.notes.push(
+        "No descendants and no Schedule II next of kin — spouse takes the entire estate.",
+      );
+    } else {
+      result.notes.push(
+        "No descendants, no spouse and no Schedule II kin. Property would escheat to the State.",
+      );
+    }
+    return;
+  }
+
+  const spouseShare = spouseAlive ? totalEstate / 2 : 0;
+  if (spouseAlive) {
+    result.shares.push({
+      heir: "Spouse",
+      amount: spouseShare,
+      rule: "Section 54(a) — one-half to spouse",
+    });
+  }
+
+  const residue = totalEstate - spouseShare;
+  const perSlot = residue / slots.length;
+
+  slots.forEach((slot) => {
+    if (slot.kind === "fixed") {
+      result.shares.push({
+        heir: slot.heir,
+        amount: perSlot,
+        rule: slot.rule,
+      });
+    } else {
+      const per = perSlot / slot.count;
+      for (let j = 1; j <= slot.count; j++) {
+        result.shares.push({
+          heir: `Child ${j} of predeceased sibling ${slot.idx + 1}`,
+          amount: per,
+          rule: slot.rule,
+        });
+      }
+    }
+  });
+
+  result.notes.push(
+    spouseAlive
+      ? "Section 54: spouse takes one-half; residue divided equally among Schedule II next of kin (per stirpes for predeceased siblings)."
+      : "No descendants or spouse: estate divided equally among Schedule II next of kin (per stirpes for predeceased siblings).",
+  );
 }

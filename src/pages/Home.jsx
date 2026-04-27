@@ -154,7 +154,7 @@ export default function Home() {
             {
               icon: ShieldCheck,
               title: "Transparent math",
-              desc: "Each distribution shows which rule triggered and the exact fraction assigned to every heir.",
+              desc: "Each distribution shows which rule triggered and the exact rupee amount assigned to every heir, with derived percentages.",
             },
           ].map((c, i) => (
             <motion.div

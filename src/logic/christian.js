@@ -1,5 +1,6 @@
 /*
- * Christian Intestate Succession — direct port of the engine in christian.htm.
+ * Christian Intestate Succession — direct port of the engine in
+ * docs/legacy/christian.htm.
  *
  * Estate is built from house + bank + insurance + pension - lifetime gifts,
  * with insurance / pension optionally diverted to nominees. A full will

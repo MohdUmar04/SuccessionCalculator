@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Parsi Succession Engine (Full System)</title>
+  <style>
+    body { font-family: Arial; background:#f5f5f5; padding:20px; }
+    .box { background:white; padding:20px; border-radius:10px; max-width:800px; margin:auto; }
+
+    input[type="number"], input[type="text"], select {
+      width:100%;
+      margin:6px 0;
+      padding:8px;
+    }
+
+    input[type="checkbox"] {
+      width:auto;
+      margin-right:8px;
+      vertical-align:middle;
+    }
+
+    label {
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .branch { background:#fafafa; padding:10px; margin:10px 0; }
+    button { padding:10px; width:100%; margin-top:10px; }
+    #result { margin-top:20px; background:#eef; padding:10px; }
+  </style>
+</head>
+
+<body>
+<div class="box">
+
+<h2>Parsi Succession Engine (Full System)</h2>
+
+<h3>Assets</h3>
+
+<label>House Value (in ₹)</label>
+<input id="house" type="number" min="0" oninput="sanitizeNumber(this)">
+
+<label>Bank Balance (in ₹)</label>
+<input id="bank" type="number" min="0" oninput="sanitizeNumber(this)">
+
+<label>Insurance (in ₹)</label>
+<input id="insurance" type="number" min="0" oninput="sanitizeNumber(this)">
+
+<label>Pension (in ₹)</label>
+<input id="pension" type="number" min="0" oninput="sanitizeNumber(this)">
+
+<label>Gift Made During Lifetime (in ₹)</label>
+<input id="gift" type="number" min="0" oninput="sanitizeNumber(this)">
+
+<label>Insurance Nominee</label>
+<input id="insNominee">
+
+<label>Pension Nominee</label>
+<input id="penNominee">
+
+<label><input type="checkbox" id="nomineeOverride"> Nominee gets assets directly</label>
+<label><input type="checkbox" id="spouse"> Spouse Alive</label>
+<label><input type="checkbox" id="willPresent"> Full Will Present</label>
+
+<label><input type="checkbox" id="partialWill"> Partial Will Present</label>
+
+<label>Percentage of Estate under Will (%)</label>
+<input id="willPercent" type="number" min="0" max="100" oninput="sanitizeNumber(this)">
+
+<h3>Children</h3>
+
+<label>Total Children</label>
+<input id="totalChildren" type="number" min="0" value="0">
+
+<label>Predeceased Children</label>
+<input id="preChildren" type="number" min="0" value="0" oninput="genBranches()">
+
+<div id="branches"></div>
+
+<h3>Parents</h3>
+<label><input type="checkbox" id="father"> Father</label>
+<label><input type="checkbox" id="mother"> Mother</label>
+
+<h3>Siblings</h3>
+
+<label>Total Siblings</label>
+<input id="siblings" type="number" min="0" value="0">
+
+<label>Predeceased Siblings</label>
+<input id="preSiblings" type="number" min="0" value="0" oninput="genSiblingBranches()">
+
+<div id="siblingBranches"></div>
+
+<button onclick="calculate()">Calculate</button>
+
+<div id="result"></div>
+
+</div>
+
+<script>
+
+// ================= GLOBAL FLAG =================
+let s53Triggered = false;
+
+// ================= INPUT CONTROL =================
+document.addEventListener("wheel", ()=>{ if(document.activeElement.type==="number") document.activeElement.blur(); });
+document.addEventListener("touchmove", ()=>{ if(document.activeElement.type==="number") document.activeElement.blur(); });
+document.addEventListener("keydown", e=>{
+  if(document.activeElement.type==="number" && (e.key==="ArrowUp"||e.key==="ArrowDown")) e.preventDefault();
+});
+
+// ================= HELPERS =================
+function getNumber(id){
+  let v=document.getElementById(id)?.value?.trim();
+  if(!v) return 0;
+  let n=Number(v);
+  return isNaN(n)?0:n;
+}
+function sanitizeNumber(el){ if(el.value<0) el.value=0; }
+
+// ================= GRANDCHILD BRANCHES =================
+function genGrandBranches(i) {
+  let count = getNumber(`preGC_${i}`);
+  let container = document.getElementById(`grand_${i}`);
+
+  let old = {};
+  container.querySelectorAll("input,select").forEach(el => old[el.id] = el.value);
+
+  container.innerHTML = "";
+
+  for (let j=1;j<=count;j++) {
+    container.innerHTML += `
+      <div class="branch">
+        <label>Grandchild ${j} was Son or Daughter?</label>
+        <select id="gtype_${i}_${j}">
+          <option value="son">Son</option>
+          <option value="daughter">Daughter</option>
+        </select>
+
+        <label><input type="checkbox" id="gwidow_${i}_${j}"> Widow (only if Son)</label>
+
+        <label>Children of this Grandchild</label>
+        <input type="number" min="0" id="gcount_${i}_${j}">
+      </div>
+    `;
+  }
+
+  Object.keys(old).forEach(id=>{
+    if(document.getElementById(id)) document.getElementById(id).value = old[id];
+  });
+}
+
+// ================= CHILD BRANCHES =================
+function genBranches(){
+  let pre=getNumber("preChildren");
+  let total=getNumber("totalChildren");
+  if(pre>total){ document.getElementById("preChildren").value=total; pre=total; }
+
+  let c=document.getElementById("branches");
+  let old={};
+  c.querySelectorAll("input,select").forEach(i=>old[i.id]=i.value);
+  c.innerHTML="";
+
+  for(let i=1;i<=pre;i++){
+    c.innerHTML+=`
+      <div class="branch">
+        <label>Was this child a Son or Daughter?</label>
+        <select id="ctype_${i}">
+          <option value="son">Son</option>
+          <option value="daughter">Daughter</option>
+        </select>
+
+        <label><input type="checkbox" id="cwidow_${i}"> Widow (only if Son)</label>
+
+        <label>Children in Branch ${i}</label>
+        <input type="number" min="0" id="cbranch_${i}">
+
+        <label>Predeceased Grandchildren</label>
+        <input type="number" min="0" id="preGC_${i}" oninput="genGrandBranches(${i})">
+
+        <div id="grand_${i}"></div>
+      </div>
+    `;
+  }
+
+  Object.keys(old).forEach(id=>{
+    if(document.getElementById(id)) document.getElementById(id).value=old[id];
+  });
+}
+
+// ================= SIBLING BRANCHES =================
+function genSiblingBranches(){
+  let pre=getNumber("preSiblings");
+  let total=getNumber("siblings");
+  if(pre>total){ document.getElementById("preSiblings").value=total; pre=total; }
+
+  let c=document.getElementById("siblingBranches");
+  let old={};
+  c.querySelectorAll("input").forEach(i=>old[i.id]=i.value);
+  c.innerHTML="";
+
+  for(let i=1;i<=pre;i++){
+    c.innerHTML+=`
+      <div class="branch">
+        <label>Children of Sibling Branch ${i}</label>
+        <input type="number" min="0" id="sbranch_${i}">
+      </div>
+    `;
+  }
+
+  Object.keys(old).forEach(id=>{
+    if(document.getElementById(id)) document.getElementById(id).value=old[id];
+  });
+}
+
+// ================= MAIN ENGINE =================
+function calculate() {
+
+  s53Triggered = false;
+
+  let house=getNumber("house");
+  let bank=getNumber("bank");
+  let insurance=getNumber("insurance");
+  let pension=getNumber("pension");
+  let gift=getNumber("gift");
+
+  let nomineeOverride=document.getElementById("nomineeOverride").checked;
+  let insNominee = document.getElementById("insNominee").value.trim();
+let penNominee = document.getElementById("penNominee").value.trim();
+
+let nomineeHeirs = [];
+  let estateInsurance = insurance;
+let estatePension = pension;
+
+if(nomineeOverride){
+
+  if(insurance > 0){
+    nomineeHeirs.push({
+      name: insNominee || "Insurance Nominee",
+      share: insurance
+    });
+    estateInsurance = 0;
+  }
+
+  if(pension > 0){
+    nomineeHeirs.push({
+      name: penNominee || "Pension Nominee",
+      share: pension
+    });
+    estatePension = 0;
+  }
+}
+  let totalEstate=house+bank+estateInsurance+estatePension - gift;
+
+if(totalEstate < 0) totalEstate = 0;
+
+  let willPresent = document.getElementById("willPresent").checked;
+  let partialWill = document.getElementById("partialWill").checked;
+let willPercent = getNumber("willPercent");
+
+  if(willPresent){
+  document.getElementById("result").innerHTML = `
+    <h3>Final Distribution</h3>
+    Total Estate: ₹${totalEstate.toLocaleString()}<br><br>
+    <b>Full Will is present.</b><br>
+    Distribution will follow the terms of the will.
+  `;
+  return;
+}
+
+if(partialWill){
+
+  let willPortion = (willPercent/100) * totalEstate;
+  totalEstate = totalEstate - willPortion;
+
+}
+
+if(totalEstate < 0) totalEstate = 0;
+
+  if(totalEstate<=0){ alert("Enter assets"); return; }
+
+  let spouse=document.getElementById("spouse").checked;
+  let totalChildren=getNumber("totalChildren");
+  let preChildren=getNumber("preChildren");
+  let aliveChildren=Math.max(0,totalChildren-preChildren);
+
+  let father=document.getElementById("father").checked;
+  let mother=document.getElementById("mother").checked;
+
+  let heirs=[];
+  let redistributionPool=0;
+
+  if(totalChildren>0){
+
+    let parentCount=(father?1:0)+(mother?1:0);
+    let units=aliveChildren+preChildren+(spouse?1:0)+(parentCount*0.5);
+    let unit=totalEstate/units;
+
+    if(spouse) heirs.push({name:"Spouse",share:unit});
+    for(let i=1;i<=aliveChildren;i++) heirs.push({name:"Child "+i,share:unit});
+    if(father) heirs.push({name:"Father",share:unit/2});
+    if(mother) heirs.push({name:"Mother",share:unit/2});
+
+    for(let i=1;i<=preChildren;i++){
+
+      let type=document.getElementById(`ctype_${i}`).value;
+      let count=getNumber(`cbranch_${i}`);
+      let widow=document.getElementById(`cwidow_${i}`)?.checked;
+      let preGC=getNumber(`preGC_${i}`);
+
+      let hasDesc = false;
+
+      if(count > 0) hasDesc = true;
+      for(let j=1;j<=preGC;j++){
+        let gcount=getNumber(`gcount_${i}_${j}`);
+        if(gcount>0){ hasDesc = true; break; }
+      }
+
+      if(type==="son"){
+
+        if(!hasDesc && widow){
+
+          let widowShare = unit / 2;
+
+          heirs.push({
+            name:`Widow (Branch ${i})`,
+            share: widowShare
+          });
+
+          s53Triggered = true;
+          continue;
+        }
+
+        if(count===0 && widow){
+          heirs.push({name:`Widow (Branch ${i})`,share:unit});
+          redistributionPool+=unit;
+          continue;
+        }
+
+        let members=count+(widow?1:0);
+        if(members===0) continue;
+
+        let perHead=unit/members;
+
+        if(widow){
+          heirs.push({name:`Widow (Branch ${i})`,share:perHead});
+        }
+
+        for(let j=1;j<=count;j++){
+
+          if(j<=preGC){
+            let gcount=getNumber(`gcount_${i}_${j}`);
+            if(gcount===0) continue;
+
+            let subShare=perHead/gcount;
+
+            for(let k=1;k<=gcount;k++){
+              heirs.push({
+                name:`Great-Grandchild (Branch ${i}.${j})`,
+                share:subShare
+              });
+            }
+          } else {
+            heirs.push({name:`Grandchild (Branch ${i})`,share:perHead});
+          }
+        }
+      }
+
+      else{
+
+        if(count===0) continue;
+        let perHead=unit/count;
+
+        for(let j=1;j<=count;j++){
+
+          if(j<=preGC){
+            let gcount=getNumber(`gcount_${i}_${j}`);
+            if(gcount===0) continue;
+
+            let subShare=perHead/gcount;
+
+            for(let k=1;k<=gcount;k++){
+              heirs.push({
+                name:`Great-Grandchild (Branch ${i}.${j})`,
+                share:subShare
+              });
+            }
+          } else {
+            heirs.push({name:`Grandchild (Branch ${i})`,share:perHead});
+          }
+        }
+      }
+    }
+
+    if(redistributionPool>0){
+      let eligible=heirs.filter(h=>!h.name.includes("Widow (Branch"));
+      let extra=redistributionPool/eligible.length;
+      eligible.forEach(h=>h.share+=extra);
+    }
+  }
+
+  let out=`<h3>Final Distribution</h3>`;
+  out+=`Total Estate: ₹${totalEstate.toLocaleString()}<br><br>`;
+
+  heirs.forEach(h=>{
+    out+=`<b>${h.name}</b> (₹${h.share.toFixed(2)})<br>`;
+  });
+
+ if(s53Triggered){
+  out+=`<br><b style="color:red;">Note:</b> <span style="color:red;">Kindly Contact a Professional. The distribution of residue shall take place in accordance with Section 54, 55, 56 and Schedule II of the Indian Succession Act.</span><br>`;
+}
+if(nomineeHeirs.length > 0){
+
+  out += `<br><hr><b>Nominee Allocations (Outside Estate)</b><br>`;
+
+  nomineeHeirs.forEach(n=>{
+    out += `<b>${n.name}</b> (₹${n.share.toFixed(2)})<br>`;
+  });
+
+}
+  out += `<br><hr>
+<span style="color:red; font-weight:bold;">
+Disclaimer: This calculation is for informational purposes only and does not constitute professional legal advice. Kindly consult a qualified professional before acting on this result.
+</span><br>`;
+
+  result.innerHTML=out;
+}
+
+</script>
+</body>
+</html>

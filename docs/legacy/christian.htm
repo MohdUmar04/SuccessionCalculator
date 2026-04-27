@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Christian Succession Engine (ISA)</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background:#f5f5f5;
+      padding:20px;
+    }
+
+    .box {
+      background:white;
+      padding:20px;
+      border-radius:10px;
+      max-width:800px;
+      margin:auto;
+    }
+
+    .form-group {
+      display:grid;
+      grid-template-columns: 1fr 2fr;
+      align-items:center;
+      gap:10px;
+      margin-bottom:10px;
+    }
+
+    input, select {
+      width:100%;
+      padding:8px;
+      box-sizing:border-box;
+    }
+
+    .checkbox-group {
+      display:grid;
+      grid-template-columns: 30px 1fr;
+      align-items:center;
+      margin:6px 0;
+    }
+
+    .checkbox-group label {
+      margin:0;
+      line-height:1.4;
+      word-break: break-word;
+    }
+
+    .branch {
+      background:#fafafa;
+      padding:10px;
+      margin:10px 0;
+      border-radius:6px;
+    }
+
+    button {
+      padding:10px;
+      width:100%;
+      margin-top:10px;
+    }
+
+    #result {
+      margin-top:20px;
+      background:#eef;
+      padding:10px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="box">
+
+<h2>Christian Succession Engine (ISA)</h2>
+
+<h3>Assets</h3>
+
+<div class="form-group"><label>House Value</label><input id="house" type="number"></div>
+<div class="form-group"><label>Bank Balance</label><input id="bank" type="number"></div>
+<div class="form-group"><label>Insurance</label><input id="insurance" type="number"></div>
+<div class="form-group"><label>Pension</label><input id="pension" type="number"></div>
+<div class="form-group"><label>Gift </label><input id="gift" type="number"></div>
+<div class="form-group"><label>Insurance Nominee</label><input id="insNominee"></div>
+<div class="form-group"><label>Pension Nominee</label><input id="penNominee"></div>
+
+<div class="checkbox-group"><input type="checkbox" id="nomineeOverride"><label>Nominee gets assets directly</label></div>
+<div class="checkbox-group"><input type="checkbox" id="spouse"><label>Spouse Alive</label></div>
+<div class="checkbox-group"><input type="checkbox" id="willPresent"><label>Full Will</label></div>
+<div class="checkbox-group"><input type="checkbox" id="partialWill"><label>Partial Will</label></div>
+
+<div class="form-group"><label>Will %</label><input id="willPercent" type="number"></div>
+
+<h3>Children</h3>
+<div class="form-group"><label>Total Children</label><input id="totalChildren" type="number" value="0"></div>
+<div class="form-group"><label>Predeceased Children</label><input id="preChildren" type="number" value="0" oninput="genBranches()"></div>
+
+<div id="branches"></div>
+
+<h3>Parents</h3>
+<div class="checkbox-group"><input type="checkbox" id="father"><label>Father</label></div>
+<div class="checkbox-group"><input type="checkbox" id="mother"><label>Mother</label></div>
+
+<h3>Siblings</h3>
+<div class="form-group"><label>Total Siblings</label><input id="siblings" type="number" value="0"></div>
+<div class="form-group"><label>Predeceased Siblings</label><input id="preSiblings" type="number" value="0" oninput="genSiblingBranches()"></div>
+
+<div id="siblingBranches"></div>
+
+<button onclick="calculate()">Calculate</button>
+
+<div id="result"></div>
+
+</div>
+
+<script>
+
+function getNumber(id){
+  let v=document.getElementById(id)?.value;
+  return v?Number(v):0;
+}
+
+// CHILD BRANCHES
+function genBranches(){
+  let pre=getNumber("preChildren");
+  let c=document.getElementById("branches");
+  c.innerHTML="";
+
+  for(let i=1;i<=pre;i++){
+    c.innerHTML+=`
+      <div class="branch">
+        <div class="form-group">
+          <label>Children in Branch ${i}</label>
+          <input type="number" id="cbranch_${i}">
+        </div>
+      </div>
+    `;
+  }
+}
+
+// SIBLING BRANCHES
+function genSiblingBranches(){
+  let pre=getNumber("preSiblings");
+  let c=document.getElementById("siblingBranches");
+  c.innerHTML="";
+
+  for(let i=1;i<=pre;i++){
+    c.innerHTML+=`
+      <div class="branch">
+        <div class="form-group">
+          <label>Children of Sibling Branch ${i}</label>
+          <input type="number" id="sbranch_${i}">
+        </div>
+      </div>
+    `;
+  }
+}
+
+// MAIN ENGINE
+function calculate(){
+
+  let house=getNumber("house");
+  let bank=getNumber("bank");
+  let insurance=getNumber("insurance");
+  let pension=getNumber("pension");
+  let gift=getNumber("gift");
+
+  let nomineeOverride=document.getElementById("nomineeOverride").checked;
+
+  let estateInsurance = insurance;
+  let estatePension = pension;
+  let nomineeHeirs=[];
+
+  if(nomineeOverride){
+    if(insurance>0){
+      nomineeHeirs.push({name:"Insurance Nominee",share:insurance});
+      estateInsurance=0;
+    }
+    if(pension>0){
+      nomineeHeirs.push({name:"Pension Nominee",share:pension});
+      estatePension=0;
+    }
+  }
+
+  let totalEstate=house+bank+estateInsurance+estatePension-gift;
+  if(totalEstate<0) totalEstate=0;
+
+  let willPresent=document.getElementById("willPresent").checked;
+  let partialWill=document.getElementById("partialWill").checked;
+  let willPercent=getNumber("willPercent");
+
+  if(willPresent){
+    result.innerHTML="Full will applies.";
+    return;
+  }
+
+  if(partialWill){
+    totalEstate=totalEstate*(1-willPercent/100);
+  }
+
+  let spouse=document.getElementById("spouse").checked;
+  let totalChildren=getNumber("totalChildren");
+  let preChildren=getNumber("preChildren");
+  let aliveChildren=totalChildren-preChildren;
+
+  let father=document.getElementById("father").checked;
+  let mother=document.getElementById("mother").checked;
+
+  let heirs=[];
+
+  // CASE 1: WITH DESCENDANTS
+  if(totalChildren>0){
+
+    if(spouse){
+      let spouseShare = totalEstate/3;
+      let rest = totalEstate - spouseShare;
+
+      heirs.push({name:"Spouse",share:spouseShare});
+
+      let units = aliveChildren + preChildren;
+      let unit = rest / units;
+
+      for(let i=1;i<=aliveChildren;i++){
+        heirs.push({name:`Child ${i}`,share:unit});
+      }
+
+      for(let i=1;i<=preChildren;i++){
+        let count=getNumber(`cbranch_${i}`);
+        if(count==0) continue;
+
+        let perHead = unit/count;
+
+        for(let j=1;j<=count;j++){
+          heirs.push({name:`Grandchild (Branch ${i})`,share:perHead});
+        }
+      }
+
+    } else {
+      let units = aliveChildren + preChildren;
+      let unit = totalEstate / units;
+
+      for(let i=1;i<=aliveChildren;i++){
+        heirs.push({name:`Child ${i}`,share:unit});
+      }
+
+      for(let i=1;i<=preChildren;i++){
+        let count=getNumber(`cbranch_${i}`);
+        if(count==0) continue;
+
+        let perHead = unit/count;
+
+        for(let j=1;j<=count;j++){
+          heirs.push({name:`Grandchild (Branch ${i})`,share:perHead});
+        }
+      }
+    }
+  }
+
+  // CASE 2: NO DESCENDANTS
+  else{
+
+    if(spouse){
+
+      if(father || mother){
+        let spouseShare = totalEstate/2;
+        heirs.push({name:"Spouse",share:spouseShare});
+
+        let rest = totalEstate - spouseShare;
+
+        let parents=[];
+        if(father) parents.push("Father");
+        if(mother) parents.push("Mother");
+
+        let perHead = rest/parents.length;
+
+        parents.forEach(p=>{
+          heirs.push({name:p,share:perHead});
+        });
+
+      } else {
+        heirs.push({name:"Spouse",share:totalEstate});
+      }
+
+    } 
+    
+    else{
+
+      // PRIORITY 1: PARENTS
+      if(father || mother){
+
+        let parents=[];
+        if(father) parents.push("Father");
+        if(mother) parents.push("Mother");
+
+        let perHead = totalEstate / parents.length;
+
+        parents.forEach(p=>{
+          heirs.push({name:p,share:perHead});
+        });
+      }
+
+      // PRIORITY 2: SIBLINGS
+      else{
+
+        let siblings=getNumber("siblings");
+        let preSiblings=getNumber("preSiblings");
+        let aliveSiblings = siblings - preSiblings;
+
+        if(siblings > 0){
+
+          let totalUnits = aliveSiblings + preSiblings;
+          let unit = totalEstate / totalUnits;
+
+          for(let i=1;i<=aliveSiblings;i++){
+            heirs.push({name:`Sibling ${i}`,share:unit});
+          }
+
+          for(let i=1;i<=preSiblings;i++){
+            let count=getNumber(`sbranch_${i}`);
+            if(count==0) continue;
+
+            let perHead = unit/count;
+
+            for(let j=1;j<=count;j++){
+              heirs.push({name:`Nephew/Niece (Branch ${i})`,share:perHead});
+            }
+          }
+
+        } 
+        
+        // 🔥 NEW FIX: NO SIBLINGS CASE
+        else{
+
+          heirs.push({
+            name:"Further kindred (uncles, aunts, cousins, etc.)",
+            share:totalEstate
+          });
+
+          heirs.push({
+            name:"Note",
+            share:0,
+            note:"Distribution governed by Sections 41–49 (degree of kindred)."
+          });
+        }
+      }
+    }
+  }
+
+  let out=`<h3>Distribution</h3>Total Estate: ₹${totalEstate}<br><br>`;
+
+  heirs.forEach(h=>{
+    out+=`${h.name}: ₹${h.share.toFixed(2)}<br>`;
+    if(h.note){
+      out+=`<i>${h.note}</i><br>`;
+    }
+  });
+
+  if(nomineeHeirs.length>0){
+    out+=`<hr>Nominee Assets:<br>`;
+    nomineeHeirs.forEach(n=>{
+      out+=`${n.name}: ₹${n.share}<br>`;
+    });
+  }
+
+  // ✅ DISCLAIMER ADDED
+  out += `<br><hr>
+  <span style="color:red; font-weight:bold;">
+  Disclaimer: This calculation is for informational purposes only and does not constitute legal advice.
+  Distribution under the Indian Succession Act, 1925 may vary based on full family structure,
+  degree of kindred, and judicial interpretation. Consult a qualified professional.
+  </span><br>`;
+
+  result.innerHTML=out;
+}
+
+</script>
+</body>
+</html>

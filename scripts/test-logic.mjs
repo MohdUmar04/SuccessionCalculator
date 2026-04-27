@@ -161,6 +161,89 @@ test("Parsi: nominee override pulls insurance and pension out of estate", () => 
     throw new Error(`Alice nominee amount wrong`);
 });
 
+test("Parsi: no children, spouse + both parents → spouse 1/2, parents share residue", () => {
+  const r = computeParsi({
+    house: 4_000_000,
+    spouseAlive: true,
+    totalChildren: 0,
+    fatherAlive: true,
+    motherAlive: true,
+  });
+  const spouse = findHeir(r, "Spouse");
+  const father = findHeir(r, "Father");
+  const mother = findHeir(r, "Mother");
+  if (!approx(spouse.amount, 2_000_000, 1e-3))
+    throw new Error(`spouse=${spouse.amount}, expected 2,000,000`);
+  if (!approx(father.amount, 1_000_000, 1e-3))
+    throw new Error(`father=${father.amount}, expected 1,000,000`);
+  if (!approx(mother.amount, 1_000_000, 1e-3))
+    throw new Error(`mother=${mother.amount}, expected 1,000,000`);
+});
+
+test("Parsi: no children, spouse + 1 parent + 2 siblings → spouse 1/2, residue split 3 ways", () => {
+  const r = computeParsi({
+    house: 6_000_000,
+    spouseAlive: true,
+    totalChildren: 0,
+    motherAlive: true,
+    siblings: 2,
+  });
+  const spouse = findHeir(r, "Spouse");
+  const mother = findHeir(r, "Mother");
+  const sib1 = findHeir(r, "Sibling 1");
+  if (!approx(spouse.amount, 3_000_000, 1e-3))
+    throw new Error(`spouse=${spouse.amount}`);
+  if (!approx(mother.amount, 1_000_000, 1e-3))
+    throw new Error(`mother=${mother.amount}`);
+  if (!approx(sib1.amount, 1_000_000, 1e-3))
+    throw new Error(`sib1=${sib1.amount}`);
+});
+
+test("Parsi: no children, no spouse, only siblings (1 living + 1 predeceased w/ 2 kids)", () => {
+  const r = computeParsi({
+    house: 2_000_000,
+    spouseAlive: false,
+    totalChildren: 0,
+    siblings: 2,
+    predeceasedSiblings: [{ branchCount: 2 }],
+  });
+  // 2 slots → each gets 1,000,000; predeceased sibling's branch splits → 500k each
+  const sib = findHeir(r, "Sibling 1");
+  if (!approx(sib.amount, 1_000_000, 1e-3))
+    throw new Error(`sib=${sib.amount}`);
+  const nephews = r.shares.filter((h) =>
+    h.heir.startsWith("Child") && h.heir.includes("predeceased sibling"),
+  );
+  if (nephews.length !== 2)
+    throw new Error(`expected 2 nephews, got ${nephews.length}`);
+  for (const n of nephews)
+    if (!approx(n.amount, 500_000, 1e-3))
+      throw new Error(`${n.heir}=${n.amount}`);
+});
+
+test("Parsi: no children, spouse only, no kin → spouse takes all", () => {
+  const r = computeParsi({
+    house: 1_500_000,
+    spouseAlive: true,
+    totalChildren: 0,
+  });
+  if (r.shares.length !== 1) throw new Error(`expected 1 share`);
+  if (!approx(r.shares[0].amount, 1_500_000, 1e-3))
+    throw new Error(`spouse=${r.shares[0].amount}`);
+});
+
+test("Parsi: no children, no spouse, no kin → empty shares + escheat note", () => {
+  const r = computeParsi({
+    house: 1_000_000,
+    spouseAlive: false,
+    totalChildren: 0,
+  });
+  if (r.shares.length !== 0)
+    throw new Error(`expected 0 shares, got ${r.shares.length}`);
+  if (!r.notes.some((n) => n.toLowerCase().includes("escheat")))
+    throw new Error("expected escheat note");
+});
+
 test("Parsi: gift reduces estate", () => {
   const r = computeParsi({
     house: 1_000_000,

@@ -102,7 +102,7 @@ export default function Article() {
         </WorkedExample>
       </Section>
 
-      <Section kicker="Christian succession" title="Fixed fractions and a floor for widows" icon={Cross}>
+      <Section kicker="Christian succession" title="Fixed fractions for the spouse" icon={Cross}>
         <p>
           The Christian scheme is older in feel — it uses fixed fractions rather than equal-share
           arithmetic. The two headline rules:
@@ -115,24 +115,23 @@ export default function Article() {
           </li>
           <li>
             <strong>Section 34 — spouse + kindred (no descendants).</strong> A straight{" "}
-            <em>half and half</em>: spouse gets one-half, other relatives share the rest.
+            <em>half and half</em>: spouse gets one-half, the surviving parent(s) split the rest.
+            If there are no parents either, the spouse takes the entire estate.
           </li>
         </ul>
-
-        <p>
-          <strong>Section 33A</strong> then carves out a special protection for the widow of an{" "}
-          <em>Indian Christian</em> who dies intestate without lineal descendants. If the net estate
-          is ₹5,000 or less, the widow takes <em>everything</em>. If it is more, she takes{" "}
-          <em>₹5,000 plus half of the remainder</em>; the other half goes to kindred. The number is
-          frozen in the 1925 drafting and is trivial today, but the mechanism still applies.
-        </p>
 
         <p>
           Distribution among descendants follows Sections 36–40 on a <em>per stirpes</em> basis —
           the estate is divided into as many shares as there are branches (children plus groups of
           grandchildren from a predeceased child), and each branch divides its share internally.
-          When there are no descendants, Sections 42–48 layer in father → mother + siblings →
-          siblings and their children → remote kindred.
+          When there are no descendants and no spouse, Sections 42–47 layer in parents → siblings
+          (with per-stirpes nephews and nieces) → remote kindred.
+        </p>
+
+        <p className="text-ink-300 text-sm">
+          Section 33A's ₹5,000 widow-floor for Indian Christians is not modelled here — the
+          threshold has been frozen since 1925 and is trivial today, so the calculator falls
+          straight through to Section 34 for this case. Consult counsel if it is material to you.
         </p>
 
         <WorkedExample title="Worked example — Christian intestate with children">
@@ -158,18 +157,26 @@ export default function Article() {
 
       <Section kicker="How the calculator works" title="From rules to numbers">
         <p>
-          The maths in both calculators is built on the same pattern. Each heir is assigned a{" "}
-          <em>raw fraction</em> driven by the applicable section — 1 for a Parsi child, 0.5 for a
-          Parsi parent, 1/3 for a Christian widow, and so on. These raw fractions are then{" "}
-          <em>normalised</em>: the calculator sums them, then divides each by the total so the
-          shares add up to 100 % of the estate. If you enter an estate value, that percentage is
-          multiplied by the estate to produce rupee amounts.
+          Both calculators work directly in rupees. They start by assembling the estate —{" "}
+          <em>house + bank + insurance + pension − lifetime gifts</em> — and, if the
+          "nominee gets the asset directly" toggle is on, pull the insurance and pension proceeds
+          out of the estate and report them separately as nominee allocations. A full will then
+          short-circuits the rest; a partial will trims the residue by the supplied percentage
+          before any heir math runs.
+        </p>
+        <p>
+          What is left is divided according to the section that applies. For Parsis that means a
+          unit count under Section 51 — spouse and each child = 1 unit, each parent = 0.5 unit —
+          with the unit value falling out of <em>estate ÷ total units</em>. For Christians it is
+          the fixed fractions of Section 33 (1/3 / 2/3) or Section 34 (1/2 / 1/2). When there are
+          no lineal descendants the engine falls back on Schedule II for Parsis or §§42–47 for
+          Christians.
         </p>
         <p>
           For predeceased descendants the logic is recursive — the deceased child's share is
           computed as if they had died intestate at that moment, then distributed among their own
-          heirs. That's how Section 53 and Sections 37–40 generate a cascading tree of shares while
-          still respecting the <em>per stirpes</em> principle.
+          heirs. That is how Section 53 and Sections 37–40 generate a cascading tree of shares
+          while still respecting the <em>per stirpes</em> principle.
         </p>
       </Section>
 

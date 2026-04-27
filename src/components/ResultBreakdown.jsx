@@ -163,8 +163,8 @@ export default function ResultBreakdown({ result, currency = "INR" }) {
 
       {shares.length > 0 && (
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="h-64 md:h-72">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 md:h-72 w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={chartData}
