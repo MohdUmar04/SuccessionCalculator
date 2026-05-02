@@ -10,6 +10,7 @@ import "./App.css";
 const ParsiCalculator = lazy(() => import("./pages/ParsiCalculator"));
 const ChristianCalculator = lazy(() => import("./pages/ChristianCalculator"));
 const Article = lazy(() => import("./pages/Article"));
+const DailyNews = lazy(() => import("./pages/DailyNews"));
 
 const pageVariants = {
   initial: { opacity: 0, y: 24 },
@@ -64,6 +65,16 @@ function AnimatedRoutes() {
             <motion.div variants={pageVariants} initial="initial" animate="enter" exit="exit">
               <Suspense fallback={<PageFallback />}>
                 <Article />
+              </Suspense>
+            </motion.div>
+          }
+        />
+        <Route
+          path="/news"
+          element={
+            <motion.div variants={pageVariants} initial="initial" animate="enter" exit="exit">
+              <Suspense fallback={<PageFallback />}>
+                <DailyNews />
               </Suspense>
             </motion.div>
           }

@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Scale, Home as HomeIcon, Users, Cross, BookOpen, Menu, X } from "lucide-react";
+import { Scale, Home as HomeIcon, Users, Cross, BookOpen, Newspaper, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const tabs = [
@@ -8,6 +8,7 @@ const tabs = [
   { to: "/parsi", label: "Parsi Calculator", icon: Users },
   { to: "/christian", label: "Christian Calculator", icon: Cross },
   { to: "/article", label: "Article", icon: BookOpen },
+  { to: "/news", label: "Daily News", icon: Newspaper },
 ];
 
 export default function Navbar() {
