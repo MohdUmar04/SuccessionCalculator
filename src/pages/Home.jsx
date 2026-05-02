@@ -9,6 +9,9 @@ import {
   ShieldCheck,
   Sparkles,
   Calculator,
+  UserCheck,
+  FileText,
+  Compass,
 } from "lucide-react";
 
 const fadeUp = {
@@ -170,6 +173,61 @@ export default function Home() {
               </div>
               <h4 className="font-semibold text-lg mb-1">{c.title}</h4>
               <p className="text-ink-300 text-sm leading-relaxed">{c.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Key concepts */}
+      <section>
+        <div className="mb-8">
+          <h2 className="section-title">Before you begin: a few essentials</h2>
+          <p className="text-ink-300 mt-2">
+            Quick context that shapes how succession actually works in India.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {[
+            {
+              icon: Scale,
+              title: "What is a Legal Heir?",
+              desc: "A legal heir is the person chosen by law to inherit the property, assets, and liabilities of a deceased individual. It does not depend on any nomination or beneficiary designation — it is determined entirely by succession law. The closest family members (spouse, children, parents) are usually the legal heirs; in their absence, the law follows a defined sequence through the extended family.",
+            },
+            {
+              icon: UserCheck,
+              title: "What is a Nominee?",
+              desc: "A nominee is someone named by a living person to receive an asset — like a life insurance payout or a bank deposit — after their death. However, the nominee is only a custodian or facilitator: they receive the asset but do not become its legal owner. The Supreme Court of India and several High Courts have repeatedly affirmed that the legal heirs remain the rightful owners.",
+            },
+            {
+              icon: FileText,
+              title: "Insurance Act, 1938",
+              desc: "The Insurance Act, 1938 is the principal legislation governing insurance in India. From a succession standpoint, the key provisions are those on nomination — particularly Section 39. Naming a nominee ensures claims are paid out promptly, but it does not override the rights of legal heirs under the applicable succession law.",
+            },
+            {
+              icon: Compass,
+              title: "Who is this site for?",
+              desc: "This website is built for members of the Christian and Parsi communities, whose succession is governed by the Indian Succession Act, 1925 — not by religion-specific personal laws like the Hindu Succession Act. If you belong to either community and want to understand how your assets would be distributed on your demise, this is the right place.",
+            },
+          ].map((c, i) => (
+            <motion.div
+              key={c.title}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              custom={i}
+              variants={fadeUp}
+              className="glass p-6"
+            >
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 w-11 h-11 rounded-xl bg-accent-500/15 border border-accent-500/20 grid place-items-center">
+                  <c.icon className="w-5 h-5 text-accent-300" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">{c.title}</h3>
+                  <p className="text-ink-300 text-sm leading-relaxed">{c.desc}</p>
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>
