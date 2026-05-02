@@ -12,7 +12,21 @@ import {
   UserCheck,
   FileText,
   Compass,
+  Newspaper,
 } from "lucide-react";
+
+function YoutubeIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z" />
+    </svg>
+  );
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -62,16 +76,51 @@ export default function Home() {
             descendants, and remote kindred — and shows how the estate is divided.
           </motion.p>
 
-          <motion.div variants={fadeUp} custom={3} className="flex flex-wrap gap-3 pt-2">
-            <Link to="/parsi" className="btn-primary">
-              Parsi Calculator <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link to="/christian" className="btn-ghost">
-              Christian Calculator <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link to="/article" className="btn-ghost">
-              Read the article
-            </Link>
+          <motion.div variants={fadeUp} custom={3} className="pt-2 space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link to="/parsi" className="btn-primary">
+                <Users className="w-4 h-4" />
+                Parsi Calculator
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link to="/christian" className="btn-ghost">
+                <Cross className="w-4 h-4" />
+                Christian Calculator
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <a
+                href="https://youtu.be/UGhHE7ygV-I"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-ink-100 border border-red-500/40 hover:border-red-400/60 hover:bg-red-500/10 transition-all"
+              >
+                <YoutubeIcon className="w-4 h-4 text-red-500" />
+                Watch on YouTube
+              </a>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-300">
+              <span className="text-ink-400 uppercase tracking-[0.2em] text-[11px]">
+                Or read
+              </span>
+              <Link
+                to="/news"
+                className="group inline-flex items-center gap-1.5 hover:text-white transition-colors"
+              >
+                <Newspaper className="w-4 h-4 text-accent-300" />
+                Daily News
+                <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+              </Link>
+              <span className="text-ink-500">·</span>
+              <Link
+                to="/article"
+                className="group inline-flex items-center gap-1.5 hover:text-white transition-colors"
+              >
+                <BookOpen className="w-4 h-4 text-accent-300" />
+                The full article
+                <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+              </Link>
+            </div>
           </motion.div>
         </motion.div>
       </section>
@@ -81,11 +130,11 @@ export default function Home() {
         <div className="flex items-end justify-between mb-8">
           <div>
             <h2 className="section-title">What you can do here</h2>
-            <p className="text-ink-300 mt-2">Three focused tools, one clean experience.</p>
+            <p className="text-ink-300 mt-2">Four focused tools, one clean experience.</p>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             {
               icon: Users,
@@ -100,6 +149,13 @@ export default function Home() {
               desc: "Division under Sections 31–49, covering widow + descendants, kindred, and rules where there are no lineal descendants.",
               to: "/christian",
               color: "from-sky-400/30 to-indigo-400/20",
+            },
+            {
+              icon: Newspaper,
+              title: "Daily News",
+              desc: "A newspaper-style read on the biggest myths around nomination, wills, and what really happens to your assets after death.",
+              to: "/news",
+              color: "from-rose-400/30 to-amber-400/20",
             },
             {
               icon: BookOpen,

@@ -7,8 +7,8 @@ const tabs = [
   { to: "/", label: "Home", icon: HomeIcon },
   { to: "/parsi", label: "Parsi Calculator", icon: Users },
   { to: "/christian", label: "Christian Calculator", icon: Cross },
-  { to: "/article", label: "Article", icon: BookOpen },
   { to: "/news", label: "Daily News", icon: Newspaper },
+  { to: "/article", label: "Article", icon: BookOpen },
 ];
 
 export default function Navbar() {
