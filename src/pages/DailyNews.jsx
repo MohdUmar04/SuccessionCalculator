@@ -1,5 +1,8 @@
 import { motion } from "framer-motion";
 import { Newspaper, Quote } from "lucide-react";
+import familyPortrait from "../assets/news/p1_img1.png";
+import lastWill from "../assets/news/p2_img1.png";
+import gravestones from "../assets/news/p2_img2.png";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -54,7 +57,7 @@ export default function DailyNews() {
       <Myth
         number="I"
         title="Nomination transfers ownership"
-        image="/news/p1_img1.png"
+        image={familyPortrait}
         imageAlt="Vintage family portrait"
         imageSide="right"
       >
@@ -93,7 +96,7 @@ export default function DailyNews() {
       <Myth
         number="II"
         title="Nomination bypasses your estate"
-        image="/news/p2_img1.png"
+        image={lastWill}
         imageAlt="Last Will and Testament document"
         imageSide="left"
       >
@@ -167,7 +170,7 @@ export default function DailyNews() {
       <Myth
         number="½"
         title="A person can be nominated for the family pension"
-        image="/news/p2_img2.png"
+        image={gravestones}
         imageAlt="Old gravestones in a cemetery"
         imageSide="left"
       >
